@@ -37,11 +37,9 @@ if check_errors[1] > 0:
 else:
     print('[+] Game successfully initialised')
 
-
 # Initialise game window
 pygame.display.set_caption('Snake Eater')
 game_window = pygame.display.set_mode((frame_size_x, frame_size_y))
-
 
 # Colors (R, G, B)
 black = pygame.Color(0, 0, 0)
@@ -67,28 +65,21 @@ def show_score(choice, color, font, size):
 
 # uses epsilon greedy to determine which action to take in a given state, e gets larger as episodes increase, ties are broken randomly
 def policy():
-    action = random.randrange(0, 4)
-    return action
+    return random.randrange(0, 4)
 
-
-# Game variables
-food_spawn = True
-score = 0
-
-# 
+# graph variables
 X = []
 Y = []
 
-eCount = 0
-gamma = 0.95
-alpha = 0.6
-Q = np.zeros([3, 3, 2, 2, 2, 2, 4, 4])
-model = np.zeros((3, 3, 2, 2, 2, 2, 4, 8), dtype=object)
-n = 0
-for k in range(0, 10000):
-    eCount+=1
+# Game variables
+food_spawn = True
+change_to = 2
+score = 0
+
+# number of episodes 
+for eCount in range(1, 10001):
     print(eCount)
-    # intialize action, random snake head/body postion
+    #intialize action, random snake head/body postion
     A = random.randrange(0, 4)
     if A == 0:
         rand_x = random.randint(0, frame_size_x//10)*10
@@ -111,18 +102,18 @@ for k in range(0, 10000):
         snake_pos = [rand_x, rand_y]
         snake_body = [[snake_pos[0], snake_pos[1]], [snake_pos[0], snake_pos[1]+10], [100, snake_pos[1]+(2*10)]]
     score = 0
-    # spawn food in random spot
+    #spawn food in random spot
     food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
     food_spawn = True
     direction = A
     pairs = []
     # Main logic, each step
     while True:
-        # initialize state to consider: food direction x axis, food direction y axis, whether up/left/right/down are open
+        #initialize state to consider: food direction x axis, food direction y axis, whether up/left/right/down are open
 
-        # set reward to 0 unless gets food or hits wall
+        #set reward to 0 unless gets food or hits wall
         reward = 0
-        # intialize event
+        #intialize event
         for event in pygame.event.get():
             newEvent = pygame.event.Event(pygame.KEYDOWN, unicode="b", key=pygame.K_a, mod=pygame.KMOD_NONE)
             pygame.event.post(newEvent)
@@ -131,21 +122,30 @@ for k in range(0, 10000):
                 sys.exit()
             # Whenever a key is pressed down
             elif event.type == pygame.KEYDOWN:
-                # get action
+                #get action
                 change_to = policy()
-
-        # set action
+        #set action
         A = change_to
+
+        # dont let snake instantly go other direction
+        if change_to == 0 and direction != 3:
+            direction = 0
+        if change_to == 1 and direction != 2:
+            direction = 1
+        if change_to == 2 and direction != 1:
+            direction = 2
+        if change_to == 3 and direction != 0:
+            direction = 3
 
         # Moving the snake
         if direction == 0:
             snake_pos[1] -= 10
+        if direction == 3:
+            snake_pos[1] += 10
         if direction == 1:
             snake_pos[0] -= 10
         if direction == 2:
             snake_pos[0] += 10
-        if direction == 3:
-            snake_pos[1] += 10
 
         # Snake body growing mechanism
         snake_body.insert(0, list(snake_pos))
@@ -160,7 +160,6 @@ for k in range(0, 10000):
         if not food_spawn:
             food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
         food_spawn = True
-
 
         # GFX
         game_window.fill(black)
@@ -192,12 +191,10 @@ for k in range(0, 10000):
         pygame.display.update()
         # Refresh rate
         fps_controller.tick(difficulty)
-    # keep track of progress
     X.append(score)
     if eCount%100 == 0:
         Y.append(np.mean(X))
         X.clear()
-# plot progress
 fig = plt.figure()
 plt.plot(range(1, np.asarray(Y).shape[0]+1), Y)
 plt.ylabel('average score')
