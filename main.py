@@ -1,9 +1,8 @@
 """
 Snake Eater
 Made with PyGame
+initial snake game code taken from: 
 https://github.com/rajatdiptabiswas/snake-pygame
-tabular dyna-q
-rewards -1 for death, +100 for food
 """
 
 import pygame, sys, time, random
@@ -73,13 +72,13 @@ Y = []
 
 # Game variables
 food_spawn = True
-change_to = 2
+change_to = None
 score = 0
 
 # number of episodes 
 for eCount in range(1, 10001):
     print(eCount)
-    #intialize action, random snake head/body postion
+    # initialize action, random snake head/body postion
     A = random.randrange(0, 4)
     if A == 0:
         rand_x = random.randint(0, frame_size_x//10)*10
@@ -102,18 +101,18 @@ for eCount in range(1, 10001):
         snake_pos = [rand_x, rand_y]
         snake_body = [[snake_pos[0], snake_pos[1]], [snake_pos[0], snake_pos[1]+10], [100, snake_pos[1]+(2*10)]]
     score = 0
-    #spawn food in random spot
+
+    # spawn food in random spot
     food_pos = [random.randrange(1, (frame_size_x//10)) * 10, random.randrange(1, (frame_size_y//10)) * 10]
     food_spawn = True
     direction = A
     pairs = []
+
     # Main logic, each step
     while True:
-        #initialize state to consider: food direction x axis, food direction y axis, whether up/left/right/down are open
-
-        #set reward to 0 unless gets food or hits wall
+        # set reward to 0 unless gets food or hits wall
         reward = 0
-        #intialize event
+        # initialize event
         for event in pygame.event.get():
             newEvent = pygame.event.Event(pygame.KEYDOWN, unicode="b", key=pygame.K_a, mod=pygame.KMOD_NONE)
             pygame.event.post(newEvent)
@@ -122,9 +121,9 @@ for eCount in range(1, 10001):
                 sys.exit()
             # Whenever a key is pressed down
             elif event.type == pygame.KEYDOWN:
-                #get action
+                # get action
                 change_to = policy()
-        #set action
+        # set action
         A = change_to
 
         # dont let snake instantly go other direction
@@ -150,8 +149,8 @@ for eCount in range(1, 10001):
         # Snake body growing mechanism
         snake_body.insert(0, list(snake_pos))
         if snake_pos[0] == food_pos[0] and snake_pos[1] == food_pos[1]:
-            reward = 100
             score += 1
+            reward = score*10
             food_spawn = False
         else:
             snake_body.pop()
@@ -174,16 +173,29 @@ for eCount in range(1, 10001):
         # Getting out of bounds
         if snake_pos[0] < 0 or snake_pos[0] > frame_size_x-10:
             reward = -1
-            break
         if snake_pos[1] < 0 or snake_pos[1] > frame_size_y-10:
             reward = -1
-            break
 
-        # Touching the snake body
+        # initialize input array, 1=hit object, 2=head, 3=food
+        input = np.zeros([frame_size_y+2, frame_size_x+2, 3])
+        input[0, :] = [1, 0, 0]
+        input[frame_size_y+1, :] = [1, 0, 0]
+        input[:, 0] = [1, 0, 0]
+        input[:, frame_size_x+1] = [1, 0, 0]
+        input[snake_pos[1]+1, snake_pos[0]+1] = [0, 1, 0]
+        input[food_pos[1]+1, food_pos[0]+1] = [0, 0, 1]
+
+        # Touching the snake body & add body to input array
         for block in snake_body[1:]:
+            input[block[1]+1, block[0]+1] = [1, 0, 0]
             if snake_pos[0] == block[0] and snake_pos[1] == block[1]:
                 reward = -1
-                break
+
+        # model part
+        
+        
+        if reward == -1:
+            break
         
         #shows score
         show_score(20, white, 'consolas', 20)
@@ -191,10 +203,12 @@ for eCount in range(1, 10001):
         pygame.display.update()
         # Refresh rate
         fps_controller.tick(difficulty)
+    # keep track of progress
     X.append(score)
     if eCount%100 == 0:
         Y.append(np.mean(X))
         X.clear()
+# plot and make image of progress
 fig = plt.figure()
 plt.plot(range(1, np.asarray(Y).shape[0]+1), Y)
 plt.ylabel('average score')
