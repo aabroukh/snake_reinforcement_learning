@@ -3,6 +3,9 @@ Snake Eater
 Made with PyGame
 initial snake game code taken from: 
 https://github.com/rajatdiptabiswas/snake-pygame
+gym setup referenced from: 
+https://github.com/openai/gym/blob/master/docs/creating-environments.md
+https://github.com/openai/gym-soccer
 """
 
 import pygame, sys, time, random
