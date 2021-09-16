@@ -50,7 +50,6 @@ class SnakeEnv(gym.Env):
             starting_position = [random.randint(1, height), random.randint(snake_size+1, width)]
         elif direction == (0, -1): # left
             starting_position = [random.randint(1, height), random.randint(1, width-snake_size)]
-        print(direction, starting_position)
 
         self.scaling_factor = scaling_factor
         self.initial_size = snake_size
@@ -189,7 +188,6 @@ class SnakeEnv(gym.Env):
             self.starting_position = [random.randint(1, self.height-1), random.randint(self.snake_size+1, self.width-1)]
         elif direction == (0, -1): # left
             self.starting_position = [random.randint(1, self.height-1), random.randint(1, self.width-self.snake_size)]
-        print(self.direction, self.starting_position)
         self._init_field(self.starting_position, self.initial_size)
         self.food = self._generate_food()
         self.snake_size = self.initial_size
