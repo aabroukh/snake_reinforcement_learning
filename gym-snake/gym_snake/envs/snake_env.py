@@ -18,7 +18,7 @@ class SnakeEnv(gym.Env):
     }
     # (1, 0) = up, (-1, 0) = down, (0, -1) = left, (0, 1) = right
     # 0 = forward, 1 = right, 2 = left
-    def __init__(self, height=8, width=8, scaling_factor=6,
+    def __init__(self, height=33, width=33, scaling_factor=6,
                  starting_position=(0, 0), snake_size=3, direction=(0, 0),
                  time_penalty=-0.01, food_reward=1, loss_penalty=-1, win_reward=10):
         self.action_space = spaces.Discrete(3)
