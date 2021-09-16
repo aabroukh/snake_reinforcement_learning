@@ -191,7 +191,6 @@ class SnakeEnv(gym.Env):
             self.starting_position = [random.randint(1, self.height-1), random.randint(1, self.width-self.snake_size)]
         print(self.direction, self.starting_position)
         self._init_field(self.starting_position, self.initial_size)
-        print(self.snake)
         self.food = self._generate_food()
         self.snake_size = self.initial_size
 
