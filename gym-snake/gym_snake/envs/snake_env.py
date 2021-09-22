@@ -75,7 +75,7 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, x_dim), random.randint(1, y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = -1
 
-        self.im = plt.imshow(self.state, cmap = 'hot', interpolation='none',vmin=0,vmax=2)  
+        self.im = plt.imshow(self.state, cmap = 'cubehelix', interpolation='none',vmin=0,vmax=2)  
 
     def check_for_collision(self, x, y):
         done = False
@@ -189,5 +189,6 @@ class SnakeEnv(gym.Env):
         img = np.rot90(self.state[1:self.x_dim+1, 1:self.y_dim+1])
         img = np.where(img != 0, 1, img)
         self.im.set_data(img)
+        plt.axis('off')
         plt.draw()
         plt.pause(0.05)
