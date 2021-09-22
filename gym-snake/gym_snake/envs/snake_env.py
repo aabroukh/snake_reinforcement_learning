@@ -1,230 +1,193 @@
-from collections import deque
-import time
-
 import gym
 import numpy as np
-
-from gym import spaces, logger
-from gym.utils import seeding
-from gym.envs.classic_control import rendering
-
 import random
+import pylab as plt
 
+from gym import spaces
+
+'''
+action space: forward 0, left 1, right 2 (relative to current direction)
+direction: right (1, 0), left (-1, 0), up (0, 1), down (0, -1)
+observation space: 
+    x_dim by y_dim box
+    -1 is food
+    0 is open space
+    1 is tail
+    body is 2->snake size-1 to tell when dissapearing
+    x_dim*y_dim = head
+    x_dim*y_dim+1 = border block
+'''
 
 class SnakeEnv(gym.Env):
-    metadata = {
-        "render.modes": ["human", "rgb_array"],
-        "video.frames_per_second": "35"
-    }
-    # (1, 0) = up, (-1, 0) = down, (0, -1) = left, (0, 1) = right
-    # 0 = forward, 1 = right, 2 = left
-    def __init__(self, height=33, width=33, scaling_factor=6,
-                 starting_position=(0, 0), snake_size=3, direction=(0, 0),
-                 time_penalty=-0.01, food_reward=1, loss_penalty=-1, win_reward=10):
+    def __init__(self, x_dim=20, y_dim=20, snake_size=3):
+        self.x_dim = x_dim
+        self.y_dim = y_dim
         self.action_space = spaces.Discrete(3)
-        self.ACTIONS = ["STRAIGHT", "LEFT", "RIGHT"]
-        self.observation_space = spaces.Box(0, 2, (height + 2, width + 2), dtype="uint8")
-        self.viewer = None
-        self.seed()
+        self.observation_space = spaces.Box(low=-1, high= x_dim*y_dim+1, shape=[self.x_dim+2, self.y_dim+2])
+        self.max_size = x_dim * y_dim
+        self.food_reward = 10
+        self.win_reward = 100
+        self.loss_penalty = -1
+        self.initial_snake_size = snake_size
 
-        # rewards and penalties
-        self.time_penalty = time_penalty
-        self.food_reward = food_reward
-        self.loss_penalty = loss_penalty
-        self.win_reward = win_reward
-        if loss_penalty > 0 or time_penalty > 0:
-            logger.warn("Values of penalties should not be positive.")
-
-        # initialize size and position properties
-        self.height = height
-        self.width = width
-
-        # randomize initial direction and position
-        dir_list = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        direction = dir_list[random.randint(0, 3)]
-        if direction == (1, 0): # up
-            starting_position = [random.randint(snake_size+1, height), random.randint(1, width)]
-        elif direction == (-1, 0): # down
-            starting_position = [random.randint(1, height-snake_size), random.randint(1, width)]
-        elif direction == (0, 1): # right
-            starting_position = [random.randint(1, height), random.randint(snake_size+1, width)]
-        elif direction == (0, -1): # left
-            starting_position = [random.randint(1, height), random.randint(1, width-snake_size)]
-
-        self.scaling_factor = scaling_factor
-        self.initial_size = snake_size
-        self.snake_size = snake_size
-        self.max_size = height * width
-        self.state = np.zeros((height + 2, width + 2), dtype="uint8")
         self.game_over = False
+        self.snake_size = self.initial_snake_size
+        # randomize initial position and direction
+        dir_list = [(1, 0), (-1, 0), (0, 1), (0, -1)]
+        self.direction = dir_list[random.randint(0, 3)]
+        if self.direction == (0, 1): # up
+            self.starting_position = [random.randint(1, x_dim), random.randint(snake_size+1, y_dim)]
+        elif self.direction == (0, -1): # down
+            self.starting_position = [random.randint(1, x_dim), random.randint(1, y_dim-snake_size)]
+        elif self.direction == (1, 0): # right
+            self.starting_position = [random.randint(snake_size+1, x_dim), random.randint(1, y_dim)]
+        elif self.direction == (-1, 0): # left
+            self.starting_position = [random.randint(1, x_dim-snake_size), random.randint(1, y_dim)]
 
-        # set bounds of the environment
-        self.state[:, 0] = self.state[:, -1] = 1
-        self.state[0, :] = self.state[-1, :] = 1
-
-        # initialize snake properties
-        self.direction = direction
-        self.snake = deque()
-        # initialize position of the snake
-        self._init_field(starting_position, snake_size)
-
-        # place food on the field
-        self.food = self._generate_food()
-
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    def _init_field(self, starting_position, snake_size):
-        y, x = starting_position
-        for i in range(snake_size):
-            self.state[y][x] = 1
-            if self.direction == (0, 1):
+        # initialize state and add snake to it
+        self.state = np.zeros((x_dim+2, y_dim+2))
+        self.snake = []
+        self.snake.append(self.starting_position)
+        self.state[self.starting_position[0], self.starting_position[1]] = x_dim*y_dim
+        x, y = self.starting_position
+        for i in range(1, snake_size):
+            if self.direction == (1, 0):
                 x-=1
-                self.snake.appendleft((y, x))
-            elif self.direction == (0, -1):
-                x+=1
-                self.snake.appendleft((y, x))
-            elif self.direction == (1, 0):
-                y-=1
-                self.snake.appendleft((y, x))
+                self.snake.append([x, y])
             elif self.direction == (-1, 0):
+                x+=1
+                self.snake.append([x, y])
+            elif self.direction == (0, 1):
+                y-=1
+                self.snake.append([x, y])
+            elif self.direction == (0, -1):
                 y+=1
-                self.snake.appendleft((y, x))
+                self.snake.append([x, y])
+            self.state[x][y] = snake_size-i
 
-    def _generate_food(self):
-        y, x = self.np_random.randint(self.height), self.np_random.randint(self.width)
-        while self.state[y][x]:
-            y, x = self.np_random.randint(self.height), self.np_random.randint(self.width)
-        self.state[y][x] = 2
+        # add boundaries to state
+        self.state[:, 0] = self.state[:, -1] = x_dim*y_dim+1
+        self.state[0, :] = self.state[-1, :] = x_dim*y_dim+1
 
-        return y, x
+        # add food to state and self variable
+        self.food_position = [random.randint(1, x_dim), random.randint(1, y_dim)]
+        while self.food_position in self.snake:
+            self.food_position = [random.randint(1, x_dim), random.randint(1, y_dim)]
+        self.state[self.food_position[0], self.food_position[1]] = -1
 
-    def _check_for_collision(self, y, x):
+        self.im = plt.imshow(self.state, cmap = 'hot', interpolation='none',vmin=0,vmax=2)  
+
+    def check_for_collision(self, x, y):
         done = False
-        pop = True
-        reward = self.time_penalty
+        reward = -0.01 # time step decrement
 
-        if self.state[y][x]:
-            if self.state[y][x] == 2:
-                pop = False
-                reward += (self.food_reward+self.snake_size-3)
+        if self.state[x][y]:
+            if self.state[x][y] == -1: # ate food
+                reward += self.food_reward
                 self.snake_size += 1
+                self.state[self.snake[0][0], self.snake[0][1]] = self.snake_size-1
+                self.snake.insert(0, [x, y])
+                self.state[self.snake[0][0], self.snake[0][1]] = self.x_dim*self.y_dim
                 if self.snake_size == self.max_size:
                     reward += self.win_reward
                     self.game_over = done = True
-                self.food = self._generate_food()
-            else:
+                self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
+                while self.food_position in self.snake:
+                    self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
+            elif self.state[x][y]!=self.x_dim*self.y_dim: # collision
                 reward += self.loss_penalty
                 self.game_over = done = True
-                pop = False
+        else: # normal progression
+            self.state[self.snake[0][0], self.snake[0][1]] = self.snake_size-1
+            self.snake.insert(0, [x, y])
+            self.state[self.snake[0][0], self.snake[0][1]] = self.x_dim*self.y_dim
+            for i in range(2, len(self.snake)):
+                self.state[self.snake[i][0], self.snake[i][1]]-=1
+            self.snake.pop()
 
-        self.state[y][x] = 1
-
-        return reward, done, pop
+        return reward, done
 
     def step(self, action):
-        y, x = self.snake[-1]
-        if action == 0: # straight
-            y += self.direction[0]
-            x += self.direction[1]
-        elif action == 1: # right
+        x, y = self.snake[0]
+        if action == 0:
+            x += self.direction[0]
+            y += self.direction[1]
+        elif action == 1:
             if self.direction[0] == 0:
+                x -= self.direction[1]
                 self.direction = (-self.direction[1], 0)
-                y += self.direction[0]
             else:
+                y += self.direction[0]
                 self.direction = (0, self.direction[0])
-                x += self.direction[1]
-        elif action == 2: # left
+        elif action == 2:
             if self.direction[0] == 0:
-                self.direction = (self.direction[1], 0)
-                y += self.direction[0]
-            else:
-                self.direction = (0, -self.direction[0])
                 x += self.direction[1]
+                self.direction = (self.direction[1], 0)
+            else:
+                y -= self.direction[0]
+                self.direction = (0, -self.direction[0])
         else:
             raise ValueError("Action can only be 0, 1 or 2")
 
-        if self.game_over:
-            raise RuntimeError("You're calling step() even though the environment has returned done = True."
-                               "You should restart the environment after receiving done = True")
-        reward, done, pop = self._check_for_collision(y, x)
+        reward, done = self.check_for_collision(x, y)
+        # print(f"action: {action}")
+        # print(f"direction: {self.direction}")
+        # print(f"reward: {reward}")
+        # print(f"snake: {self.snake}")
+        return self.state, reward, done
+        
 
-        if not done:
-            self.snake.append((y, x))
-
-        if pop:
-            y, x = self.snake.popleft()
-            self.state[y][x] = 0
-
-        observation = self.state
-
-        info = {
-            "snake": self.snake,
-            "snake_size": self.snake_size,
-            "direction": self.direction,
-            "food": self.food
-        }
-
-        return observation, reward, done, info
-
+        
     def reset(self):
         self.game_over = False
+        self.snake_size = self.initial_snake_size
+        # randomize initial position and direction
         dir_list = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        direction = dir_list[random.randint(0, 3)]
-        self.direction = direction
+        self.direction = dir_list[random.randint(0, 3)]
+        if self.direction == (0, 1): # up
+            self.starting_position = [random.randint(1, self.x_dim), random.randint(self.snake_size+1, self.y_dim)]
+        elif self.direction == (0, -1): # down
+            self.starting_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim-self.snake_size)]
+        elif self.direction == (1, 0): # right
+            self.starting_position = [random.randint(self.snake_size+1, self.x_dim), random.randint(1, self.y_dim)]
+        elif self.direction == (-1, 0): # left
+            self.starting_position = [random.randint(1, self.x_dim-self.snake_size), random.randint(1, self.y_dim)]
 
-        while self.snake:
-            y, x = self.snake.pop()
-            self.state[y][x] = 0
+        # initialize state and add snake to it
+        self.state = np.zeros((self.x_dim+2, self.y_dim+2))
+        self.snake = []
+        self.snake.append(self.starting_position)
+        self.state[self.starting_position[0], self.starting_position[1]] = self.x_dim*self.y_dim
+        x, y = self.starting_position
+        for i in range(1, self.snake_size):
+            if self.direction == (1, 0):
+                x-=1
+                self.snake.append([x, y])
+            elif self.direction == (-1, 0):
+                x+=1
+                self.snake.append([x, y])
+            elif self.direction == (0, 1):
+                y-=1
+                self.snake.append([x, y])
+            elif self.direction == (0, -1):
+                y+=1
+                self.snake.append([x, y])
+            self.state[x][y] = self.snake_size-i
 
-        self.state[self.food[0]][self.food[1]] = 0
-        
-        if direction == (1, 0): # up
-            self.starting_position = [random.randint(self.snake_size+1, self.height-1), random.randint(1, self.width-1)]
-        elif direction == (-1, 0): # down
-            self.starting_position = [random.randint(1, self.height-self.snake_size), random.randint(1, self.width-1)]
-        elif direction == (0, 1): # right
-            self.starting_position = [random.randint(1, self.height-1), random.randint(self.snake_size+1, self.width-1)]
-        elif direction == (0, -1): # left
-            self.starting_position = [random.randint(1, self.height-1), random.randint(1, self.width-self.snake_size)]
-        self._init_field(self.starting_position, self.initial_size)
-        self.food = self._generate_food()
-        self.snake_size = self.initial_size
+        # add boundaries to state
+        self.state[:, 0] = self.state[:, -1] = self.x_dim*self.y_dim+1
+        self.state[0, :] = self.state[-1, :] = self.x_dim*self.y_dim+1
 
-        return self.state
+        # add food to state and self variable
+        self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
+        while self.food_position in self.snake:
+            self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
+        self.state[self.food_position[0], self.food_position[1]] = -1
 
-    def _to_rgb(self, scaling_factor):
-        scaled_grid = np.zeros(((self.height + 2) * scaling_factor, (self.width + 2) * scaling_factor), dtype="uint8")
-        scaled_grid[:, :scaling_factor] = scaled_grid[:, -scaling_factor:] = 255
-        scaled_grid[:scaling_factor, :] = scaled_grid[-scaling_factor:, :] = 255
-
-        y, x = self.food
-        scaled_y, scaled_x = y * scaling_factor, x * scaling_factor
-        scaled_grid[scaled_y : scaled_y + scaling_factor, scaled_x : scaled_x + scaling_factor] = 255
-
-        for (y, x) in self.snake:
-            scaled_y, scaled_x = y * scaling_factor, x * scaling_factor
-            scaled_grid[scaled_y : scaled_y + scaling_factor, scaled_x : scaled_x + scaling_factor] = 255
-
-        img = np.empty(((self.height + 2) * scaling_factor, (self.width + 2) * scaling_factor, 3), dtype="uint8")
-        img[:, :, 0] = img[:, :, 1] = img[:, :, 2] = scaled_grid
-
-        return img
-
-    def render(self, mode="human", close=False):
-        img = self._to_rgb(self.scaling_factor)
-        if mode == "rgb_array":
-            return img
-        elif mode == "human":
-            if self.viewer is None:
-                self.viewer = rendering.SimpleImageViewer()
-            self.viewer.imshow(img)
-            time.sleep(0.027)
-
-            return self.viewer.isopen
-
-    def close(self):
-        if self.viewer:
-            self.viewer.close()
-            self.viewer = None
+    def render(self, mode='human', close=False):
+        # render the environment to the screen  
+        img = np.rot90(self.state[1:self.x_dim+1, 1:self.y_dim+1])
+        img = np.where(img != 0, 1, img)
+        self.im.set_data(img)
+        plt.draw()
+        plt.pause(0.05)
