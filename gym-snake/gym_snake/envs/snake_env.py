@@ -94,6 +94,7 @@ class SnakeEnv(gym.Env):
                 self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
                 while self.food_position in self.snake:
                     self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
+                self.state[self.food_position[0], self.food_position[1]] = -1
             elif self.state[x][y]!=self.x_dim*self.y_dim: # collision
                 reward += self.loss_penalty
                 self.game_over = done = True
@@ -184,6 +185,8 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = -1
 
+        return self.state
+
     def render(self, mode='human', close=False):
         # render the environment to the screen  
         img = np.rot90(self.state[1:self.x_dim+1, 1:self.y_dim+1])
@@ -191,4 +194,4 @@ class SnakeEnv(gym.Env):
         self.im.set_data(img)
         plt.axis('off')
         plt.draw()
-        plt.pause(0.05)
+        plt.pause(0.01)
