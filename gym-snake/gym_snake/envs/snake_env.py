@@ -79,7 +79,7 @@ class SnakeEnv(gym.Env):
 
     def check_for_collision(self, x, y):
         done = False
-        reward = -0.01 # time step decrement
+        reward = -0.1 # time step decrement
 
         if self.state[x][y]:
             if self.state[x][y] == -1: # ate food
@@ -135,7 +135,7 @@ class SnakeEnv(gym.Env):
         # print(f"direction: {self.direction}")
         # print(f"reward: {reward}")
         # print(f"snake: {self.snake}")
-        return self.state, reward, done
+        return np.reshape(self.state, (1, self.x_dim+2, self.y_dim+2)), reward, done
         
 
         
