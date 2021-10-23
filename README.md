@@ -2,6 +2,7 @@
 Various attempts at teaching a model to beat snake. 
 gym referenced: https://github.com/AleksaC/gym-snake
 agent referenced: https://keras.io/examples/rl/deep_q_network_breakout/
+https://github.com/ModMaamari/reinforcement-learning-using-python/blob/master/Train_GridSearch.py
 
 to install gym: 
 cd gym-snake
