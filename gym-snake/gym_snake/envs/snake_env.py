@@ -25,7 +25,8 @@ class SnakeEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=3, shape=[self.x_dim+2, self.y_dim+2])
         self.max_size = x_dim * y_dim
         self.food_reward = 10
-        self.win_reward = 100
+        self.time_reward = -1/(self.max_size)
+        self.win_reward = 1000
         self.loss_penalty = -1
         self.initial_snake_size = snake_size
 
@@ -78,7 +79,7 @@ class SnakeEnv(gym.Env):
 
     def check_for_collision(self, x, y):
         done = False
-        reward = -0.1 # time step decrement
+        reward = self.time_reward # time step decrement
 
         if self.state[x][y] == 3: # ate food
             reward += (self.snake_size-2)*self.food_reward
@@ -140,7 +141,8 @@ class SnakeEnv(gym.Env):
         # print(f"direction: {self.direction}")
         # print(f"reward: {reward}")
         # print(f"snake: {self.snake}")
-        return self.state, reward, done, info
+        output = np.concatenate(self.state, np.asarray(self.direction))
+        return np.reshape(self.state, (1, self.x_dim+2, self.y_dim+2)), reward, done, info
         
 
         
@@ -190,7 +192,7 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = 3
 
-        return self.state
+        return np.reshape(self.state, (1, self.x_dim+2, self.y_dim+2))
 
     def render(self, mode='human', close=False):
         # render the environment to the screen  
@@ -199,4 +201,4 @@ class SnakeEnv(gym.Env):
         self.im.set_data(img)
         plt.axis('off')
         plt.draw()
-        plt.pause(0.01)
+        plt.pause(0.001)
