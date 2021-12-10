@@ -22,7 +22,7 @@ class SnakeEnv(gym.Env):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=0, high=3, shape=[self.x_dim+2, self.y_dim+2])
+        self.observation_space = spaces.Box(low=0, high=1, shape=[self.x_dim+2, self.y_dim+2, 4, 4])
         self.max_size = x_dim * y_dim
         self.food_reward = 10
         self.time_reward = -1/(self.max_size)
@@ -141,10 +141,8 @@ class SnakeEnv(gym.Env):
         # print(f"direction: {self.direction}")
         # print(f"reward: {reward}")
         # print(f"snake: {self.snake}")
-        output = np.concatenate(self.state, np.asarray(self.direction))
-        return np.reshape(self.state, (1, self.x_dim+2, self.y_dim+2)), reward, done, info
-        
 
+        return self.state, self.direction, reward, done, info
         
     def reset(self):
         self.game_over = False
@@ -180,7 +178,7 @@ class SnakeEnv(gym.Env):
             elif self.direction == (0, -1):
                 y+=1
                 self.snake.append([x, y])
-            self.state[x][y] = self.snake_size-i
+            self.state[x][y] = 1
 
         # add boundaries to state
         self.state[:, 0] = self.state[:, -1] = 1
@@ -192,7 +190,7 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = 3
 
-        return np.reshape(self.state, (1, self.x_dim+2, self.y_dim+2))
+        return [self.state, self.direction]
 
     def render(self, mode='human', close=False):
         # render the environment to the screen  
