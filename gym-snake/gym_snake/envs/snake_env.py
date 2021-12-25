@@ -18,11 +18,11 @@ observation space:
 '''
 
 class SnakeEnv(gym.Env):
-    def __init__(self, x_dim=20, y_dim=20, snake_size=3):
+    def __init__(self, x_dim=10, y_dim=10, snake_size=3):
         self.x_dim = x_dim
         self.y_dim = y_dim
         self.action_space = spaces.Discrete(3)
-        self.observation_space = spaces.Box(low=0, high=1, shape=[self.x_dim+2, self.y_dim+2, 4, 4])
+        self.observation_space = spaces.Box(low=0, high=1, shape=[3])
         self.max_size = x_dim * y_dim
         self.food_reward = 10
         self.time_reward = -1/(self.max_size)
@@ -132,6 +132,29 @@ class SnakeEnv(gym.Env):
             raise ValueError("Action can only be 0, 1 or 2")
 
         reward, done = self.check_for_collision(x, y)
+        to_return = [0]*3
+        if not done:
+            print(f"not done: [{x}, {y}]")
+            if self.direction==(1,0):
+                to_return[0] = self.state[x,y+1]
+                to_return[1] = self.state[x+1,y]
+                to_return[2] = self.state[x,y-1]
+            elif self.direction==(-1,0):
+                to_return[0] = self.state[x,y-1]
+                to_return[1] = self.state[x-1,y]
+                to_return[2] = self.state[x,y+1]
+            elif self.direction==(0,1):
+                to_return[0] = self.state[x-1,y]
+                to_return[1] = self.state[x,y+1]
+                to_return[2] = self.state[x+1,y]
+            elif self.direction==(0,-1):
+                to_return[0] = self.state[x+1,y]
+                to_return[1] = self.state[x,y-1]
+                to_return[2] = self.state[x-1,y]
+            else:
+                print("unkown direction")
+        else:
+            print(f"done: [{x}, {y}]")
 
         info = {
             "snake_size": self.snake_size,
@@ -141,8 +164,11 @@ class SnakeEnv(gym.Env):
         # print(f"direction: {self.direction}")
         # print(f"reward: {reward}")
         # print(f"snake: {self.snake}")
+        for i, v in enumerate(to_return):
+            if v==3:
+                to_return[i] = 2
 
-        return self.state, self.direction, reward, done, info
+        return to_return, reward, done, info
         
     def reset(self):
         self.game_over = False
@@ -190,7 +216,31 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = 3
 
-        return [self.state, self.direction]
+        to_return = [0]*3
+        print(f"reset: [{x}, {y}]")
+        if self.direction==(1,0):
+            to_return[0] = self.state[x,y+1]
+            to_return[1] = self.state[x+1,y]
+            to_return[2] = self.state[x,y-1]
+        elif self.direction==(-1,0):
+            to_return[0] = self.state[x,y-1]
+            to_return[1] = self.state[x-1,y]
+            to_return[2] = self.state[x,y+1]
+        elif self.direction==(0,1):
+            to_return[0] = self.state[x-1,y]
+            to_return[1] = self.state[x,y+1]
+            to_return[2] = self.state[x+1,y]
+        elif self.direction==(0,-1):
+            to_return[0] = self.state[x+1,y]
+            to_return[1] = self.state[x,y-1]
+            to_return[2] = self.state[x-1,y]
+        else:
+            print("unkown direction")
+        for i, v in enumerate(to_return):
+            if v==3:
+                to_return[i] = 2
+
+        return to_return
 
     def render(self, mode='human', close=False):
         # render the environment to the screen  
@@ -199,4 +249,4 @@ class SnakeEnv(gym.Env):
         self.im.set_data(img)
         plt.axis('off')
         plt.draw()
-        plt.pause(0.001)
+        plt.pause(0.0001)
