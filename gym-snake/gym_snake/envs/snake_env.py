@@ -25,7 +25,7 @@ class SnakeEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=1, shape=[10])
         self.max_size = x_dim * y_dim
         self.food_reward = 10
-        self.time_reward = -1/(self.max_size)
+        self.time_reward = -0.5/(self.max_size)
         self.win_reward = 1000
         self.loss_penalty = -10
         self.initial_snake_size = snake_size
@@ -82,7 +82,7 @@ class SnakeEnv(gym.Env):
         reward = self.time_reward # time step decrement
 
         if self.state[x][y] == 3: # ate food
-            reward += (self.snake_size-2)*self.food_reward
+            reward += self.food_reward
             self.snake_size += 1
             self.state[self.snake[0][0], self.snake[0][1]] = 1
             self.snake.insert(0, [x, y])
@@ -132,63 +132,6 @@ class SnakeEnv(gym.Env):
             raise ValueError("Action can only be 0, 1 or 2")
 
         reward, done = self.check_for_collision(x, y)
-        to_return = [0]*3
-        relative_food_dir = [0]*4 # right, left, infront, behind
-        if not done:
-            if self.direction==(1,0):
-                to_return[0] = self.state[x,y+1]
-                to_return[1] = self.state[x+1,y]
-                to_return[2] = self.state[x,y-1]
-                if self.food_position[0]-x>0:
-                    relative_food_dir[2] = 1
-                elif self.food_position[0]-x<0:
-                    relative_food_dir[3] = 1
-                if self.food_position[1]-y>0:
-                    relative_food_dir[1] = 1
-                elif self.food_position[1]-y<0:
-                    relative_food_dir[0] = 1
-                    
-            elif self.direction==(-1,0):
-                to_return[0] = self.state[x,y-1]
-                to_return[1] = self.state[x-1,y]
-                to_return[2] = self.state[x,y+1]
-                if self.food_position[0]-x<0:
-                    relative_food_dir[2] = 1
-                elif self.food_position[0]-x>0:
-                    relative_food_dir[3] = 1
-                if self.food_position[1]-y<0:
-                    relative_food_dir[1] = 1
-                elif self.food_position[1]-y>0:
-                    relative_food_dir[0] = 1
-
-            elif self.direction==(0,1):
-                to_return[0] = self.state[x-1,y]
-                to_return[1] = self.state[x,y+1]
-                to_return[2] = self.state[x+1,y]
-                if self.food_position[1]-y>0:
-                    relative_food_dir[2] = 1
-                elif self.food_position[1]-y<0:
-                    relative_food_dir[3] = 1
-                if self.food_position[0]-x<0:
-                    relative_food_dir[1] = 1
-                elif self.food_position[0]-x>0:
-                    relative_food_dir[0] = 1
-
-            elif self.direction==(0,-1):
-                to_return[0] = self.state[x+1,y]
-                to_return[1] = self.state[x,y-1]
-                to_return[2] = self.state[x-1,y]
-                if self.food_position[1]-y<0:
-                    relative_food_dir[2] = 1
-                elif self.food_position[1]-y>0:
-                    relative_food_dir[3] = 1
-                if self.food_position[0]-x>0:
-                    relative_food_dir[1] = 1
-                elif self.food_position[0]-x<0:
-                    relative_food_dir[0] = 1
-
-            else:
-                print("unkown direction")
 
         info = {
             "snake_size": self.snake_size,
@@ -198,11 +141,8 @@ class SnakeEnv(gym.Env):
         # print(f"direction: {self.direction}")
         # print(f"reward: {reward}")
         # print(f"snake: {self.snake}")
-        for i, v in enumerate(to_return):
-            if v==3:
-                to_return[i] = 2
 
-        return to_return, relative_food_dir, reward, done, info
+        return self.state[1:self.x_dim+1, 1:self.y_dim+1], reward, done, info
         
     def reset(self):
         self.game_over = False
@@ -250,68 +190,7 @@ class SnakeEnv(gym.Env):
             self.food_position = [random.randint(1, self.x_dim), random.randint(1, self.y_dim)]
         self.state[self.food_position[0], self.food_position[1]] = 3
 
-        to_return = [0]*3
-        relative_food_dir = [0]*4 # right, left, infront, behind
-        if self.direction==(1,0):
-            to_return[0] = self.state[x,y+1]
-            to_return[1] = self.state[x+1,y]
-            to_return[2] = self.state[x,y-1]
-            if self.food_position[0]-x>0:
-                relative_food_dir[2] = 1
-            elif self.food_position[0]-x<0:
-                relative_food_dir[3] = 1
-            if self.food_position[1]-y>0:
-                relative_food_dir[1] = 1
-            elif self.food_position[1]-y<0:
-                relative_food_dir[0] = 1
-                
-        elif self.direction==(-1,0):
-            to_return[0] = self.state[x,y-1]
-            to_return[1] = self.state[x-1,y]
-            to_return[2] = self.state[x,y+1]
-            if self.food_position[0]-x<0:
-                relative_food_dir[2] = 1
-            elif self.food_position[0]-x>0:
-                relative_food_dir[3] = 1
-            if self.food_position[1]-y<0:
-                relative_food_dir[1] = 1
-            elif self.food_position[1]-y>0:
-                relative_food_dir[0] = 1
-
-        elif self.direction==(0,1):
-            to_return[0] = self.state[x-1,y]
-            to_return[1] = self.state[x,y+1]
-            to_return[2] = self.state[x+1,y]
-            if self.food_position[1]-y>0:
-                relative_food_dir[2] = 1
-            elif self.food_position[1]-y<0:
-                relative_food_dir[3] = 1
-            if self.food_position[0]-x<0:
-                relative_food_dir[1] = 1
-            elif self.food_position[0]-x>0:
-                relative_food_dir[0] = 1
-
-        elif self.direction==(0,-1):
-            to_return[0] = self.state[x+1,y]
-            to_return[1] = self.state[x,y-1]
-            to_return[2] = self.state[x-1,y]
-            if self.food_position[1]-y<0:
-                relative_food_dir[2] = 1
-            elif self.food_position[1]-y>0:
-                relative_food_dir[3] = 1
-            if self.food_position[0]-x>0:
-                relative_food_dir[1] = 1
-            elif self.food_position[0]-x<0:
-                relative_food_dir[0] = 1
-
-        else:
-            print("unkown direction")
-
-        for i, v in enumerate(to_return):
-            if v==3:
-                to_return[i] = 2
-
-        return to_return, relative_food_dir
+        return self.state[1:self.x_dim+1, 1:self.y_dim+1]
 
     def render(self, mode='human', close=False):
         # render the environment to the screen  

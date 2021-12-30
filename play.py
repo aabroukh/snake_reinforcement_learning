@@ -26,23 +26,40 @@ class DQN:
         self.memory = []
 
         self.gamma = 0.95
-        self.epsilon = 0.01
+        self.epsilon = 1.0
         self.epsilon_min = 0.01
-        self.epsilon_decay = 0.977238
-        self.learning_rate = 0.00025
+        self.epsilon_decay = 0.999
+        self.learning_rate = 0.001
 
-        # self.target_model = self.create_model()
-        # self.model = self.create_model()
-        self.target_model = tf.keras.models.load_model('./saved_models/model_ecount_134.h5')
-        self.model = tf.keras.models.load_model('./saved_models/model_ecount_134.h5')
+        self.target_model = self.create_model()
+        self.model = self.create_model()
+        # self.target_model = tf.keras.models.load_model('./saved_models/model_ecount_105.h5')
+        # self.model = tf.keras.models.load_model('./saved_models/model_ecount_105.h5')
         self.max_steps_per_episode = 1000
         self.episode_count = 0
 
     def create_model(self):
         model = keras.models.Sequential()
-        model.add(layers.Dense(128, input_shape=(10,), kernel_initializer='he_normal', activation='relu', name='input'))
-        model.add(layers.Dense(128, kernel_initializer='he_normal', activation='relu', name='hidden1'))
-        model.add(layers.Dense(128, kernel_initializer='he_normal', activation='relu', name='hidden2'))
+        model.add(layers.Conv2D(
+            128, 
+            kernel_size=(3, 3), 
+            kernel_initializer='he_normal', 
+            strides=(1, 1),
+            activation='relu', 
+            padding='same', 
+            input_shape=(15, 15, 1), 
+            name='input'))
+        model.add(layers.Conv2D(
+            128, 
+            kernel_size=(3, 3), 
+            kernel_initializer='he_normal',
+            strides=(1, 1), 
+            activation='relu', 
+            padding='same', 
+            name='hidden1'))
+        model.add(layers.Flatten())
+        model.add(layers.Dense(512, kernel_initializer='he_normal', activation='relu', name='hidden2'))
+        model.add(layers.Dense(512, kernel_initializer='he_normal', activation='relu', name='hidden3'))
         model.add(layers.Dense(units=self.number_of_actions, kernel_initializer='he_normal', activation='softmax', name='output'))
         opt = keras.optimizers.Adam(learning_rate=self.learning_rate)
         model.compile(
@@ -52,36 +69,27 @@ class DQN:
         print(model.summary())
         return model
     
-    def one_hot_encode(self, state, food_dir, optimal=False):
-        one_hot_state = []
-        for s in state:
-            temp_state = [0]*2
-            if s:
-                temp_state[int(s)-1] = 1
-            one_hot_state+=temp_state
-        one_hot_state+=food_dir
-        state = np.reshape(one_hot_state, (1,10))
-        if optimal:
-            print(f"after: {state}")
-        state = tf.reshape(state, (-1, state.shape[1]))
+    def one_hot_encode(self, state, optimal=False):
+        # if optimal:
+        #     print(f"after: {state}")
+        state = tf.reshape(state, (-1, 15, 15, 1))
         return state
 
     # 0 left, 1 forward, 2 right
-    def get_action(self, state, food_dir):
-        print(f"state: {state}")
-        print(f"food_dir: {food_dir}")
+    def get_action(self, state):
+        # print(f"state: {state}")
         if np.random.random() < self.epsilon:
             return random.randint(0, 2), False
         print("optimal")
-        state = self.one_hot_encode(state, food_dir, True)
+        state = self.one_hot_encode(state, True)
         a = self.model.predict(state)
         print(f"a: {a[0]}")
         print(f"a: {np.argmax(a[0, :])}")
         return np.argmax(a[0, :]), True
 
-    def remember(self, state, food_dir_cur, action, reward, new_state, food_dir_new, done):
-        state = self.one_hot_encode(state, food_dir_cur)
-        new_state = self.one_hot_encode(new_state, food_dir_new)
+    def remember(self, state, action, reward, new_state, done):
+        state = self.one_hot_encode(state)
+        new_state = self.one_hot_encode(new_state)
         self.memory.append([state, action, reward, new_state, done])
 
     def replay(self):
@@ -99,11 +107,11 @@ class DQN:
 
 agent = DQN()
 score_history = []
-render = True
+render = False
 
 try:     
     while True:
-        cur_state, food_dir = env.reset()
+        cur_state = env.reset()
         episode_reward = 0
         done = False
         agent.epsilon *= agent.epsilon_decay
@@ -112,12 +120,12 @@ try:
             print("-------------")
             if render:
                 env.render()
-            action, greedy = agent.get_action(cur_state, food_dir)
+            action, greedy = agent.get_action(cur_state)
 
             # Apply the sampled action in our environment
-            new_state, new_food_dir, reward, done, ___ = env.step(action)
+            new_state, reward, done, ___ = env.step(action)
             episode_reward+=reward
-            agent.remember(cur_state, food_dir, action, reward, new_state, new_food_dir, done)
+            agent.remember(cur_state, action, reward, new_state, done)
             agent.replay()
 
             # update target model
@@ -127,7 +135,6 @@ try:
             # Log details
             print(f"episode count: {agent.episode_count}, timestep: {timestep}, snake size: {env.snake_size}, episode reward: {episode_reward}")
             cur_state = new_state
-            food_dir = new_food_dir
             if done:
                 print("died")
                 break
