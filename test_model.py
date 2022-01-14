@@ -26,7 +26,7 @@ class DQN:
         self.memory = []
 
         self.gamma = 0.95
-        self.epsilon = 0
+        self.epsilon = 0.1
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.992
         self.learning_rate = 0.00025
@@ -104,38 +104,23 @@ render = True
 try:     
     while True:
         cur_state, food_dir = env.reset()
-        episode_reward = 0
         done = False
-        agent.epsilon *= agent.epsilon_decay
         # agent.epsilon = max(agent.epsilon_min, agent.epsilon)
         for timestep in range(1, agent.max_steps_per_episode):
-            print("-------------")
             if render:
                 env.render()
             action, greedy = agent.get_action(cur_state, food_dir)
 
             # Apply the sampled action in our environment
             new_state, new_food_dir, reward, done, ___ = env.step(action)
-            episode_reward+=reward
-            agent.remember(cur_state, food_dir, action, reward, new_state, new_food_dir, done)
-            agent.replay()
 
-            # update target model
-            if timestep%agent.update_target_on_n==0:
-                agent.target_model.set_weights(agent.model.get_weights())
-
-            # Log details
-            print(f"episode count: {agent.episode_count}, timestep: {timestep}, snake size: {env.snake_size}, episode reward: {episode_reward}")
-            cur_state = new_state
-            food_dir = new_food_dir
             if done:
                 print("died")
                 break
 
         score_history.append(env.snake_size-3)
         agent.episode_count += 1
-        if agent.episode_count==1000: 
-            # agent.target_model.save('./saved_models/model_ecount_'+str(agent.episode_count)+'.h5')
+        if agent.episode_count==100: 
             # print(agent.target_model.layers[0].get_weights())
             # print(agent.target_model.layers[1].get_weights())
             # plot reward
@@ -148,7 +133,6 @@ try:
             env.close()
             break       
 except:
-    # agent.target_model.save('./saved_models/model_ecount_'+str(agent.episode_count)+'.h5')
     # print(agent.target_model.layers[0].get_weights())
     # print(agent.target_model.layers[1].get_weights())
     # plot reward
